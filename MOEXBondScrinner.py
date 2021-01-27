@@ -106,14 +106,14 @@ class BondsMOEXDataRetriever:
     def enrich_bonds_description(bonds_list):
         result = []
         for bond in bonds_list:
-            try:
-                sec_id = bond["SECID"]
-                bond_description = BondsMOEXDataRetriever.get_bond_description(sec_id)
-                bond_enriched = dict(bond)
-                bond_enriched.update(bond_description)
-                result.append(bond_enriched)
-            except KeyError:
-                logging.error("Can not find 'SECID' for bond " + str(bond), exc_info=True)
+            if "SECID" not in bond:
+                logging.error("While executing function 'enrich_bonds_description' can not find 'SECID' for bond " + str(bond))
+                continue
+            sec_id = bond["SECID"]
+            bond_description = BondsMOEXDataRetriever.get_bond_description(sec_id)
+            bond_enriched = dict(bond)
+            bond_enriched.update(bond_description)
+            result.append(bond_enriched)
         logging.info("Successfully enriched description for " + str(len(result)) + " bonds")
         return result
 
@@ -121,16 +121,16 @@ class BondsMOEXDataRetriever:
     def enrich_bonds_payments(bonds_list):
         result = []
         for bond in bonds_list:
-            try:
-                sec_id = bond["SECID"]
-                (amortizations_data, coupons_data, offers_data) = BondsMOEXDataRetriever.get_bond_payments(sec_id)
-                bond_enriched = dict(bond)
-                bond_enriched["amortizations"] = amortizations_data
-                bond_enriched["coupons"] = coupons_data
-                bond_enriched["offers"] = offers_data
-                result.append(bond_enriched)
-            except KeyError:
-                logging.error("Can not find 'SECID' for bond " + str(bond), exc_info=True)
+            if "SECID" not in bond:
+                logging.error("While executing function 'enrich_bonds_payments' can not find 'SECID' for bond " + str(bond))
+                continue
+            sec_id = bond["SECID"]
+            (amortizations_data, coupons_data, offers_data) = BondsMOEXDataRetriever.get_bond_payments(sec_id)
+            bond_enriched = dict(bond)
+            bond_enriched["amortizations"] = amortizations_data
+            bond_enriched["coupons"] = coupons_data
+            bond_enriched["offers"] = offers_data
+            result.append(bond_enriched)
         logging.info("Successfully enriched payments for " + str(len(result)) + " bonds")
         return result
 
@@ -138,14 +138,14 @@ class BondsMOEXDataRetriever:
     def enrich_bonds_sales_history(bonds_list):
         result = []
         for bond in bonds_list:
-            try:
-                sec_id = bond["SECID"]
-                bond_sales_history = BondsMOEXDataRetriever.get_bonds_sales_history(sec_id)
-                bond_enriched = dict(bond)
-                bond_enriched['sales_history'] = bond_sales_history
-                result.append(bond_enriched)
-            except KeyError:
-                logging.error("Can not find 'SECID' for bond " + str(bond), exc_info=True)
+            if "SECID" not in bond:
+                logging.error("While executing function 'enrich_bonds_sales_history' can not find 'SECID' for bond " + str(bond), exc_info=True)
+                continue
+            sec_id = bond["SECID"]
+            bond_sales_history = BondsMOEXDataRetriever.get_bonds_sales_history(sec_id)
+            bond_enriched = dict(bond)
+            bond_enriched['sales_history'] = bond_sales_history
+            result.append(bond_enriched)
         logging.info("Successfully enriched sales history for " + str(len(result)) + " bonds")
         return result
 
