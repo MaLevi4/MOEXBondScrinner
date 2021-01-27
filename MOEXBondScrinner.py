@@ -449,6 +449,8 @@ class BondsCustomCalculationAndFilter:
             logging.error("While calculating bond profit bad time format for bond 'MATDATE' or 'OFFERDATE'. Bond is: " +
                           str(bond), exc_info=True)
             return 0, 'error'
+        if duration.days <= 0:
+            return 0, profit_type, coupon_type
         coupons_sum = 0
         profit_ratio_list = []
         last_known_coupon_value = 0
