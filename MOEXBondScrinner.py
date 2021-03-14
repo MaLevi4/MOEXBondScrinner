@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 import urllib.request
+import urllib.error
+import time
 import json
 import logging
 import os
@@ -41,11 +43,12 @@ class BondsMOEXDataRetriever:
             cached_status = "with_sales"
             BondsMOEXDataRetriever.dump_results_to_file(bonds_list, cache_filename, cached_status)
 
-        logging.info(str(len(bonds_list)) + " bonds is loaded for analyzing.")
+        logging.info(f"{str(len(bonds_list))} bonds were loaded for analyzing.")
         return bonds_list
 
     @staticmethod
     def get_bonds_info(bounds_group_list):
+        logging.debug("Entering 'get_bonds_info' function")
         result = []
         for bonds_group in bounds_group_list:
             # additional info about coupon can be found in COUPONPERCENT, COUPONVALUE, NEXTCOUPON, COUPONPERIOD
@@ -53,21 +56,24 @@ class BondsMOEXDataRetriever:
                           "/securities.json?iss.meta=off&iss.only=securities" \
                           "&securities.columns=SECID,ISIN,SHORTNAME,SECNAME,PREVPRICE,LOTSIZE,FACEVALUE," \
                           "MATDATE,OFFERDATE,FACEUNIT,ACCRUEDINT,SECTYPE"
-            logging.debug("Request url for bonds group: " + request_url)
-            content = urllib.request.urlopen(request_url, timeout=60).read()
-            data = json.loads(content)
+            data = BondsMOEXDataRetriever._url_request(request_url)
+            if data is None:
+                logging.critical("Can not retrieve list of bonds. Further processing is impossible. "
+                                 "Please check your internet connection.")
+                exit(1)
             converted_data = BondsMOEXDataRetriever._convert_data_to_dict(data, "securities")
             result = result + converted_data
-        logging.info("Found " + str(len(result)) + " bonds")
+        logging.info(f"Found {str(len(result))} bonds")
         return result
 
     @staticmethod
     def get_bond_description(sec_id):
+        logging.debug(f"Entering 'get_bond_description' function with sec_id '{sec_id}'")
         request_url = "https://iss.moex.com/iss/securities/" + str(sec_id) + \
                       ".json?iss.meta=off&iss.only=description&description.columns=name,value"
-        logging.debug("Request url for bond description: " + request_url)
-        content = urllib.request.urlopen(request_url, timeout=60).read()
-        data = json.loads(content)
+        data = BondsMOEXDataRetriever._url_request(request_url)
+        if data is None:
+            return
         result = {}
         for line in data['description']['data']:
             key = line[0]
@@ -77,44 +83,46 @@ class BondsMOEXDataRetriever:
 
     @staticmethod
     def get_bond_payments(sec_id):
+        logging.debug(f"Entering 'get_bond_payments' function with sec_id '{sec_id}'")
         request_url = "https://iss.moex.com/iss/statistics/engines/stock/markets/bonds/bondization/" + str(sec_id) + \
                       ".json?iss.meta=off&iss.only=amortizations,coupons,offers&limit=unlimited" \
                       "&amortizations.columns=amortdate,faceunit,value" \
                       "&coupons.columns=coupondate,faceunit,value" \
                       "&offers.columns=offerdate,offertype"
-        logging.debug("Request url for bond payments: " + request_url)
-        content = urllib.request.urlopen(request_url, timeout=60).read()
-        data = json.loads(content)
-        amortizations_data = BondsMOEXDataRetriever._convert_data_to_dict(data, "amortizations")
-        coupons_data = BondsMOEXDataRetriever._convert_data_to_dict(data, "coupons")
-        offers_data = BondsMOEXDataRetriever._convert_data_to_dict(data, "offers")
+        data = BondsMOEXDataRetriever._url_request(request_url)
+        amortizations_data = None if data is None else BondsMOEXDataRetriever._convert_data_to_dict(data, "amortizations")
+        coupons_data = None if data is None else BondsMOEXDataRetriever._convert_data_to_dict(data, "coupons")
+        offers_data = None if data is None else BondsMOEXDataRetriever._convert_data_to_dict(data, "offers")
         return amortizations_data, coupons_data, offers_data
 
     @staticmethod
     def get_bonds_sales_history(sec_id, days_delta=15):
+        logging.debug(f"Entering 'get_bonds_sales_history' function with sec_id '{sec_id}'")
         today = datetime.today()
         date_from = today - timedelta(days=days_delta)
         request_url = "https://iss.moex.com/iss/history/engines/stock/markets/bonds/securities/" + str(sec_id) + \
                       ".json?iss.meta=off&iss.only=history&history.columns=TRADEDATE,VOLUME,NUMTRADES" \
                       "&limit=20&from=" + datetime.strftime(date_from, '%Y-%m-%d')
-        logging.debug("Request url for bond sales history: " + request_url)
-        content = urllib.request.urlopen(request_url, timeout=60).read()
-        data = json.loads(content)
-        return BondsMOEXDataRetriever._convert_data_to_dict(data, "history")
+        data = BondsMOEXDataRetriever._url_request(request_url)
+        return None if data is None else BondsMOEXDataRetriever._convert_data_to_dict(data, "history")
 
     @staticmethod
     def enrich_bonds_description(bonds_list):
         result = []
         for bond in bonds_list:
             if "SECID" not in bond:
-                logging.error("While executing function 'enrich_bonds_description' can not find 'SECID' for bond " + str(bond))
+                logging.error(f"While executing function 'enrich_bonds_description' can not find 'SECID' "
+                              f"for bond {str(bond)}")
                 continue
-            sec_id = bond["SECID"]
-            bond_description = BondsMOEXDataRetriever.get_bond_description(sec_id)
+            bond_description = BondsMOEXDataRetriever.get_bond_description(bond["SECID"])
+            if bond_description is None:
+                logging.error(f"Can not retrieve data about bond description for bond {str(bond)}")
+                continue
             bond_enriched = dict(bond)
             bond_enriched.update(bond_description)
             result.append(bond_enriched)
-        logging.info("Successfully enriched description for " + str(len(result)) + " bonds")
+            logging.debug(f"Description was successfully enriched for bond {bond['SECID']}")
+        logging.info(f"Successfully enriched description for {str(len(result))} bonds")
         return result
 
     @staticmethod
@@ -122,16 +130,20 @@ class BondsMOEXDataRetriever:
         result = []
         for bond in bonds_list:
             if "SECID" not in bond:
-                logging.error("While executing function 'enrich_bonds_payments' can not find 'SECID' for bond " + str(bond))
+                logging.error(f"While executing function 'enrich_bonds_payments' can not find 'SECID' "
+                              f"for bond {str(bond)}")
                 continue
-            sec_id = bond["SECID"]
-            (amortizations_data, coupons_data, offers_data) = BondsMOEXDataRetriever.get_bond_payments(sec_id)
+            (amortizations_data, coupons_data, offers_data) = BondsMOEXDataRetriever.get_bond_payments(bond["SECID"])
+            if amortizations_data is None or coupons_data is None or offers_data is None:
+                logging.error(f"Can not retrieve data about bond payments for bond {str(bond)}")
+                continue
             bond_enriched = dict(bond)
             bond_enriched["amortizations"] = amortizations_data
             bond_enriched["coupons"] = coupons_data
             bond_enriched["offers"] = offers_data
             result.append(bond_enriched)
-        logging.info("Successfully enriched payments for " + str(len(result)) + " bonds")
+            logging.debug(f"Payments were successfully enriched for bond {bond['SECID']}")
+        logging.info(f"Successfully enriched payments for {str(len(result))} bonds")
         return result
 
     @staticmethod
@@ -139,14 +151,18 @@ class BondsMOEXDataRetriever:
         result = []
         for bond in bonds_list:
             if "SECID" not in bond:
-                logging.error("While executing function 'enrich_bonds_sales_history' can not find 'SECID' for bond " + str(bond), exc_info=True)
+                logging.error(f"While executing function 'enrich_bonds_sales_history' can not find 'SECID' "
+                              f"for bond {str(bond)}", exc_info=True)
                 continue
-            sec_id = bond["SECID"]
-            bond_sales_history = BondsMOEXDataRetriever.get_bonds_sales_history(sec_id)
+            bond_sales_history = BondsMOEXDataRetriever.get_bonds_sales_history(bond["SECID"])
+            if bond_sales_history is None:
+                logging.error(f"Can not retrieve data about bond sales history for bond {str(bond)}")
+                continue
             bond_enriched = dict(bond)
             bond_enriched['sales_history'] = bond_sales_history
             result.append(bond_enriched)
-        logging.info("Successfully enriched sales history for " + str(len(result)) + " bonds")
+            logging.debug(f"Sales history was successfully enriched for bond {bond['SECID']}")
+        logging.info(f"Successfully enriched sales history for {str(len(result))} bonds")
         return result
 
     @staticmethod
@@ -155,7 +171,7 @@ class BondsMOEXDataRetriever:
         fh = open(filename, 'w+')
         fh.write(json.dumps(cached_object))
         fh.close()
-        logging.info("Data was successfully saved into '" + filename + "' file.")
+        logging.info(f"Data was successfully saved into '{filename}' file.")
 
     @staticmethod
     def load_results_from_file(filename):
@@ -174,6 +190,18 @@ class BondsMOEXDataRetriever:
                 current_dict[field_name_list[i]] = line[i]
             result.append(current_dict)
         return result
+
+    @staticmethod
+    def _url_request(request_url, timeout=60, attempt_count=3, sleep_sec=60):
+        logging.debug(f"Request url: {request_url}")
+        for i in range(attempt_count):
+            try:
+                content = urllib.request.urlopen(request_url, timeout=timeout).read()
+                return json.loads(content)
+            except urllib.error.URLError:
+                logging.warning(f"Failed to retrieve data for url '{request_url}'", exc_info=True)
+                logging.warning("Sleep for 60 seconds before make a new try.")
+                time.sleep(sleep_sec)
 
 
 class BondsMOEXFilter:
