@@ -26,16 +26,16 @@ class BondsMOEXDataRetriever:
         if cached_status == "list_only":
             logging.info("There is no data about bonds description. This data will be retrieved.")
             bonds_list = BondsMOEXDataRetriever.enrich_bonds_description(bonds_list)
-            cached_status = "with_descr"
+            cached_status = "with_description"
             BondsMOEXDataRetriever.dump_results_to_file(bonds_list, cache_filename, cached_status)
 
-        if cached_status == "with_descr":
+        if cached_status == "with_description":
             logging.info("There is no data about bonds payments. This data will be retrieved.")
             bonds_list = BondsMOEXDataRetriever.enrich_bonds_payments(bonds_list)
-            cached_status = "with_paym"
+            cached_status = "with_payments"
             BondsMOEXDataRetriever.dump_results_to_file(bonds_list, cache_filename, cached_status)
 
-        if cached_status == "with_paym":
+        if cached_status == "with_payments":
             logging.info("There is no data about bonds sales history. This data will be retrieved.")
             bonds_list = BondsMOEXDataRetriever.enrich_bonds_sales_history(bonds_list)
             cached_status = "with_sales"
