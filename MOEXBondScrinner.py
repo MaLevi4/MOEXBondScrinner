@@ -355,28 +355,20 @@ class BondsMOEXFilter:
     @staticmethod
     def filter_bonds_by_amortization(bonds_list):
         result = []
-        for line in bonds_list:
-            try:
-                amortizations = line["amortizations"]
-                if len(amortizations) > 1:
-                    continue
-                result.append(line)
-            except KeyError:
-                logging.error("Can not find 'amortizations' for bond " + str(line), exc_info=True)
+        for bond in bonds_list:
+            is_not_amortization = BondsMOEXFilter.check_not_amortization(bond)
+            if is_not_amortization:
+                result.append(bond)
         logging.info("After filtering by amortization " + str(len(result)) + " bonds left")
         return result
 
     @staticmethod
     def filter_bonds_by_offer(bonds_list):
         result = []
-        for line in bonds_list:
-            try:
-                offer_date = line["OFFERDATE"]
-                if offer_date is not None:
-                    continue
-                result.append(line)
-            except KeyError:
-                logging.error("Can not find 'OFFERDATE' for bond " + str(line), exc_info=True)
+        for bond in bonds_list:
+            is_not_offer = BondsMOEXFilter.check_not_offer(bond)
+            if is_not_offer:
+                result.append(bond)
         logging.info("After filtering by offer " + str(len(result)) + " bonds left")
         return result
 
@@ -437,6 +429,48 @@ class BondsMOEXFilter:
             if current_isin == isin:
                 return line
         return None
+
+    @staticmethod
+    def check_not_offer(bond):
+        if "OFFERDATE" not in bond:
+            logging.error(f"While executing function 'check_not_offer' can not find 'OFFERDATE' "
+                          f"for bond {str(bond)}")
+            return
+        return bond["OFFERDATE"] is None
+
+    @staticmethod
+    def check_not_amortization(bond, ignore_last_step=True):
+        if "amortizations" not in bond:
+            logging.error(f"While executing function 'check_not_amortization' can not find 'amortizations' "
+                          f"for bond {str(bond)}")
+            return
+        amortizations = bond["amortizations"]
+        if len(amortizations) == 1:
+            return True
+        if not ignore_last_step:
+            return False
+        today = datetime.today()
+        future_payments_count = 0
+        for payment in amortizations:
+            amort_date = BondsMOEXFilter._safe_get_time(payment, 'amortdate')
+            if amort_date is None:
+                return
+            if amort_date > today:
+                future_payments_count += 1
+        return future_payments_count == 1
+
+    @staticmethod
+    def _safe_get_time(input_object, key, time_format='%Y-%m-%d'):
+        try:
+            return datetime.strptime(input_object[key], time_format)
+        except TypeError:
+            logging.error(f"Possible incorrect type was provided as input_object: '{str(input_object)}'",
+                          exc_info=True)
+        except KeyError:
+            logging.error(f"Failed to find key '{key}' in '{str(input_object)}'", exc_info=True)
+        except ValueError:
+            logging.error(f"Failed to convert time using format '{time_format}' from key '{key}' in '{str(input_object)}'",
+                          exc_info=True)
 
 
 class BondsCustomCalculationAndFilter:
