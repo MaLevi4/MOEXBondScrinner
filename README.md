@@ -57,6 +57,7 @@ This steps should be used if you are interesting in adding info about emitters i
 | emitters.json | Example of file with emitters info for **init_emitter_db.py** script |
 | example.py | Example of lib usage |
 | example_advanced.py | Extended example of lib usage |
+| test.py | Unittests for several lib functions |
 
 ### Documentation
 Full documentation with detailed function description is available in github wiki of this project (https://github.com/MaLevi4/MOEXBondScrinner/wiki).
