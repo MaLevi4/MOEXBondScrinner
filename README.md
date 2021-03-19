@@ -58,4 +58,6 @@ This steps should be used if you are interesting in adding info about emitters i
 | example.py | Example of lib usage |
 | example_advanced.py | Extended example of lib usage |
 
+### Documentation
+Full documentation with detailed function description is available in github wiki of this project (https://github.com/MaLevi4/MOEXBondScrinner/wiki).
 ### License: MIT
