@@ -211,7 +211,7 @@ class BondsMOEXFilter:
         max_bond_value = filter_description_dict.get('max_bond_value', None)
         min_bond_value = filter_description_dict.get('min_bond_value', None)
         max_expiration_date = filter_description_dict.get('max_expiration_date', None)
-        min_expiration_date = filter_description_dict.get('min_expiration_date', None)
+        min_expiration_date = filter_description_dict.get('min_expiration_date', datetime.today() + timedelta(days=1))
         is_offert_interesting = filter_description_dict.get('is_offert_interesting', True)
         is_amortization_interesting = filter_description_dict.get('is_amortization_interesting', True)
         is_qualified = filter_description_dict.get('is_qualified', False)
@@ -754,11 +754,14 @@ class BondsCSVWriter:
                     current_bond[key] = bond[key]
             cleared_result.append(current_bond)
 
-        with open(filename, 'w+', newline='') as csvfile:
-            writer = csv.DictWriter(csvfile, fieldnames=field_names, delimiter=";")
-            writer.writeheader()
-            for line in cleared_result:
-                writer.writerow(BondsCSVWriter._localize_floats(line))
+        try:
+            with open(filename, 'w+', newline='') as csvfile:
+                writer = csv.DictWriter(csvfile, fieldnames=field_names, delimiter=";")
+                writer.writeheader()
+                for line in cleared_result:
+                    writer.writerow(BondsCSVWriter._localize_floats(line))
+        except PermissionError:
+            logging.warning(f"Can not write to file {filename}. Looks like it is opened in another program.")
 
     @staticmethod
     def _localize_floats(input_dict):
