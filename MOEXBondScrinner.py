@@ -476,8 +476,19 @@ class BondsMOEXFilter:
 class BondsCustomCalculationAndFilter:
     @staticmethod
     def calculate_bonds_profit(bonds_list, commission_ratio):
+        today = datetime.today()
         for bond in bonds_list:
-            (bond_profit, profit_type, coupon_type) = BondsCustomCalculationAndFilter.calculate_bond_profit(bond, commission_ratio)
+            is_not_offer = BondsMOEXFilter.check_not_offer(bond)
+            is_not_amortization = BondsMOEXFilter.check_not_amortization(bond)
+            if is_not_offer is None or is_not_amortization is None:
+                continue
+            if is_not_offer and is_not_amortization:
+                profit_type = "simple"
+                (bond_profit, coupon_type) = BondsCustomCalculationAndFilter.\
+                    calculate_bond_profit_simple(bond, commission_ratio, today)
+            else:
+                (bond_profit, profit_type, coupon_type) = BondsCustomCalculationAndFilter.\
+                    calculate_bond_profit(bond, commission_ratio)
             bond['year_profit_ratio'] = bond_profit
             bond['profit_type'] = profit_type
             bond['coupon_type'] = coupon_type
@@ -673,6 +684,49 @@ class BondsCustomCalculationAndFilter:
             except KeyError:
                 logging.error("Can not find 'ISIN' for bond " + str(line), exc_info=True)
         logging.info("Fix MOEX mistakes is ended for " + str(len(mistakes_dict.keys())) + " bonds.")
+
+    @staticmethod
+    def calculate_bond_profit_simple(bond, commission_ratio, today, tax_ratio=0.13):
+        used_keys = ['PREVPRICE', 'FACEVALUE', 'ACCRUEDINT', 'coupons', 'MATDATE']
+        for key in used_keys:
+            if key not in bond:
+                logging.error(f"While executing function 'calculate_bond_profit_simple' can not find '{key}' "
+                              f"for bond {str(bond)}")
+                return None, None
+        coupon_type = "predefined"
+        buy_price = bond['PREVPRICE'] * bond['FACEVALUE'] / 100.0
+        current_coupon = bond['ACCRUEDINT']
+        full_price = buy_price * (1 + commission_ratio) + current_coupon
+        coupons = bond['coupons']
+        close_price = bond['FACEVALUE']
+        close_date = BondsMOEXFilter._safe_get_time(bond, 'MATDATE')
+        if close_date is None:
+            return None, None
+        coupons_sum = 0
+        last_known_coupon_value = 0
+        for coupon in coupons:
+            coupon_date = BondsMOEXFilter._safe_get_time(coupon, 'coupondate')
+            if coupon_date is None or 'value' not in coupon:
+                return None, None
+            if coupon_date < today:
+                continue
+            if coupon['value'] is None:
+                coupon_type = "extrapolated"
+                logging.info(f"Coupons are not known yet for bond {bond['ISIN']}. "
+                             f"Last known coupon value will be used for profit calculation.")
+                coupons_sum += last_known_coupon_value
+            else:
+                coupons_sum += coupon['value']
+                last_known_coupon_value = coupon['value']
+        duration = close_date - today
+        clear_coupons_sum = coupons_sum * (1 - tax_ratio)
+        value_diff = close_price - buy_price - current_coupon
+        price_tax = (value_diff * tax_ratio) if value_diff > 0 else 0
+        clear_income = clear_coupons_sum + close_price - price_tax
+        clear_profit = clear_income - full_price
+        profit_ratio = clear_profit / full_price
+        profit_year_ratio = profit_ratio / duration.days * 365
+        return profit_year_ratio, coupon_type
 
     @staticmethod
     def _convert_list_to_calendar(input_list, date_field_name, value_field_name):
