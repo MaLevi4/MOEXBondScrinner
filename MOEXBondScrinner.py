@@ -223,16 +223,16 @@ class BondsMOEXFilter:
         sales_threshold_deal = filter_description_dict.get('sales_threshold_deal', 10)
 
         result = []
-        for line in bonds_list:
+        for bond in bonds_list:
             try:
                 # Getting all important values for bond
-                prev_price = line.get('PREVPRICE', None)
-                is_for_qualified = int(line["ISQUALIFIEDINVESTORS"])
-                bond_value = int(line["FACEVALUE"])
-                expiration_date = line["MATDATE"]
-                offer_date = line["OFFERDATE"]
-                amortizations = line["amortizations"]
-                sales_history = line["sales_history"]
+                prev_price = bond.get('PREVPRICE', None)
+                is_for_qualified = int(bond["ISQUALIFIEDINVESTORS"])
+                bond_value = int(bond["FACEVALUE"])
+                expiration_date = bond["MATDATE"]
+                offer_date = bond["OFFERDATE"]
+                amortizations = bond["amortizations"]
+                sales_history = bond["sales_history"]
                 total_sales_volume = 0
                 total_sales_deals = 0
                 for day in sales_history:
@@ -279,11 +279,11 @@ class BondsMOEXFilter:
                         if (min_expiration_date is not None) and (expiration_date < min_expiration_date):
                             continue
 
-                result.append(line)
+                result.append(bond)
             except KeyError:
-                logging.error("Can not find important key for bond " + str(line), exc_info=True)
+                logging.error("Can not find important key for bond " + str(bond), exc_info=True)
             except ValueError:
-                logging.error("Bad time format for bond's expiration or offer date. Bond is: " + str(line),
+                logging.error("Bad time format for bond's expiration or offer date. Bond is: " + str(bond),
                               exc_info=True)
         logging.info("After advanced filtering based on configuration " + str(len(result)) + " bonds left")
         return result
@@ -292,29 +292,29 @@ class BondsMOEXFilter:
     def filter_bonds_by_expiration_date(bonds_list, upper_bound, bottom_bound=None,
                                         filter_infinity=True, use_offer_date=False):
         result = []
-        for line in bonds_list:
+        for bond in bonds_list:
             try:
                 if not use_offer_date:
-                    if line["OFFERDATE"] is not None:
-                        result.append(line)
+                    if bond["OFFERDATE"] is not None:
+                        result.append(bond)
                         continue
-                    expiration_date = line["MATDATE"]
+                    expiration_date = bond["MATDATE"]
                 else:
-                    expiration_date = line["OFFERDATE"]
+                    expiration_date = bond["OFFERDATE"]
                 if expiration_date == "0000-00-00" or expiration_date is None:
                     if not filter_infinity:
-                        result.append(line)
+                        result.append(bond)
                     continue
                 expiration_date = datetime.strptime(expiration_date, '%Y-%m-%d')
                 if expiration_date > upper_bound:
                     continue
                 if (bottom_bound is not None) and (expiration_date < bottom_bound):
                     continue
-                result.append(line)
+                result.append(bond)
             except KeyError:
-                logging.error("Can not find expiration or offer date for bond " + str(line), exc_info=True)
+                logging.error("Can not find expiration or offer date for bond " + str(bond), exc_info=True)
             except ValueError:
-                logging.error("Bad time format for bond's expiration or offer date. Bond is: " + str(line),
+                logging.error("Bad time format for bond's expiration or offer date. Bond is: " + str(bond),
                               exc_info=True)
         if not use_offer_date:
             logging.info("After filtering by expiration date " + str(len(result)) + " bonds left")
@@ -325,30 +325,30 @@ class BondsMOEXFilter:
     @staticmethod
     def filter_bonds_by_value(bonds_list, upper_bound, bottom_bound=None):
         result = []
-        for line in bonds_list:
+        for bond in bonds_list:
             try:
-                value = int(line["FACEVALUE"])
+                value = int(bond["FACEVALUE"])
                 if value > upper_bound:
                     continue
                 if (bottom_bound is not None) and (value < bottom_bound):
                     continue
-                result.append(line)
+                result.append(bond)
             except KeyError:
-                logging.error("Can not find 'FACEVALUE' for bond " + str(line), exc_info=True)
+                logging.error("Can not find 'FACEVALUE' for bond " + str(bond), exc_info=True)
         logging.info("After filtering by value " + str(len(result)) + " bonds left")
         return result
 
     @staticmethod
     def filter_bonds_by_qualification(bonds_list):
         result = []
-        for line in bonds_list:
+        for bond in bonds_list:
             try:
-                value = int(line["ISQUALIFIEDINVESTORS"])
+                value = int(bond["ISQUALIFIEDINVESTORS"])
                 if value == 1:
                     continue
-                result.append(line)
+                result.append(bond)
             except KeyError:
-                logging.error("Can not find 'ISQUALIFIEDINVESTORS' for bond " + str(line), exc_info=True)
+                logging.error("Can not find 'ISQUALIFIEDINVESTORS' for bond " + str(bond), exc_info=True)
         logging.info("After filtering by qualification " + str(len(result)) + " bonds left")
         return result
 
@@ -375,59 +375,59 @@ class BondsMOEXFilter:
     @staticmethod
     def filter_bonds_by_null_price(bonds_list):
         result = []
-        for line in bonds_list:
-            prev_price = line.get('PREVPRICE', None)
+        for bond in bonds_list:
+            prev_price = bond.get('PREVPRICE', None)
             if prev_price is not None:
-                result.append(line)
+                result.append(bond)
         logging.info("After filtering by unknown last price " + str(len(result)) + " bonds left")
         return result
 
     @staticmethod
     def filter_bonds_without_sales(bonds_list, threshold_deal=10, threshold_amount=50):
         result = []
-        for line in bonds_list:
+        for bond in bonds_list:
             try:
-                sales_history = line["sales_history"]
+                sales_history = bond["sales_history"]
                 total_volume = 0
                 total_deals = 0
                 for day in sales_history:
                     total_volume += day['VOLUME']
                     total_deals += day['NUMTRADES']
                 if total_volume > threshold_amount and total_deals > threshold_deal:
-                    result.append(line)
+                    result.append(bond)
             except KeyError:
-                logging.error("Can not find 'sales_history' for bond " + str(line), exc_info=True)
+                logging.error("Can not find 'sales_history' for bond " + str(bond), exc_info=True)
         logging.info("After filtering by no sales recently " + str(len(result)) + " bonds left")
         return result
 
     @staticmethod
     def filter_bonds_by_isin_blacklist(bonds_list, black_list):
         result = []
-        for line in bonds_list:
+        for bond in bonds_list:
             try:
-                isin = line["ISIN"]
+                isin = bond["ISIN"]
                 if isin not in black_list:
-                    result.append(line)
+                    result.append(bond)
             except KeyError:
-                logging.error("Can not find 'ISIN' for bond " + str(line), exc_info=True)
+                logging.error("Can not find 'ISIN' for bond " + str(bond), exc_info=True)
         logging.info("After filtering by isin black list " + str(len(result)) + " bonds left")
         return result
 
     @staticmethod
     def check_specific_bond_existence(bonds_list, isin):
-        for line in bonds_list:
-            current_isin = line.get('ISIN', "")
+        for bond in bonds_list:
+            current_isin = bond.get('ISIN', "")
             if current_isin == isin:
-                print(line)
+                print(bond)
                 return True
         return False
 
     @staticmethod
     def get_specific_bond(bonds_list, isin):
-        for line in bonds_list:
-            current_isin = line.get('ISIN', "")
+        for bond in bonds_list:
+            current_isin = bond.get('ISIN', "")
             if current_isin == isin:
-                return line
+                return bond
         return None
 
     @staticmethod
@@ -647,27 +647,27 @@ class BondsCustomCalculationAndFilter:
     @staticmethod
     def filter_bonds_by_profit_ratio(bonds_list, bottom_bound, upper_bound=None):
         result = []
-        for line in bonds_list:
+        for bond in bonds_list:
             try:
-                profit_ratio = line["year_profit_ratio"]
+                profit_ratio = bond["year_profit_ratio"]
                 if profit_ratio < bottom_bound:
                     continue
                 if (upper_bound is not None) and (profit_ratio < upper_bound):
                     continue
-                result.append(line)
+                result.append(bond)
             except KeyError:
-                logging.error("Can not find 'year_profit_ratio' for bond " + str(line), exc_info=True)
+                logging.error("Can not find 'year_profit_ratio' for bond " + str(bond), exc_info=True)
         logging.info("After filtering by profit ratio " + str(len(result)) + " bonds left")
         return result
 
     @staticmethod
     def filter_bonds_by_emitter(bonds_list):
         result = []
-        for line in bonds_list:
-            emitter_risk = line.get('emitter_risk', '')
+        for bond in bonds_list:
+            emitter_risk = bond.get('emitter_risk', '')
             if emitter_risk == "exclude":
                 continue
-            result.append(line)
+            result.append(bond)
         logging.info("After filtering by emitter black list " + str(len(result)) + " bonds left")
         return result
 
@@ -675,14 +675,14 @@ class BondsCustomCalculationAndFilter:
     def force_moex_mistakes(bonds_list, mistakes_dict=None):
         if mistakes_dict is None:
             mistakes_dict = {'RU000A0JX0H6': {'coupon_type': 'extrapolated'}}
-        for line in bonds_list:
+        for bond in bonds_list:
             try:
-                isin = line["ISIN"]
+                isin = bond["ISIN"]
                 if isin in mistakes_dict.keys():
                     for force_key in mistakes_dict[isin].keys():
-                        line[force_key] = mistakes_dict[isin][force_key]
+                        bond[force_key] = mistakes_dict[isin][force_key]
             except KeyError:
-                logging.error("Can not find 'ISIN' for bond " + str(line), exc_info=True)
+                logging.error("Can not find 'ISIN' for bond " + str(bond), exc_info=True)
         logging.info("Fix MOEX mistakes is ended for " + str(len(mistakes_dict.keys())) + " bonds.")
 
     @staticmethod
@@ -747,11 +747,11 @@ class BondsCSVWriter:
                        'TYPE', 'EMITTER_ID', 'emitter_risk', 'year_profit_ratio', 'profit_type', 'coupon_type']
         if not remove_offer_date:
             field_names = field_names[:5] + ['OFFERDATE'] + field_names[5:]
-        for line in bonds_list:
+        for bond in bonds_list:
             current_bond = {}
-            for key in line:
+            for key in bond:
                 if key in field_names:
-                    current_bond[key] = line[key]
+                    current_bond[key] = bond[key]
             cleared_result.append(current_bond)
 
         with open(filename, 'w+', newline='') as csvfile:
