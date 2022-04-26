@@ -7,6 +7,7 @@ import logging
 import os
 import csv
 import sqlite3
+import platform
 from datetime import datetime, timedelta
 
 
@@ -755,8 +756,14 @@ class BondsCSVWriter:
             cleared_result.append(current_bond)
 
         try:
-            with open(filename, 'w+', newline='') as csvfile:
-                writer = csv.DictWriter(csvfile, fieldnames=field_names, delimiter=";")
+            if platform.system() == "Darwin":
+                enc = 'utf-16'
+                delim = '\t'
+            else:
+                enc = 'utf-8'
+                delim = ';'
+            with open(filename, 'w+', newline='', encoding=enc) as csvfile:
+                writer = csv.DictWriter(csvfile, fieldnames=field_names, delimiter=delim)
                 writer.writeheader()
                 for line in cleared_result:
                     writer.writerow(BondsCSVWriter._localize_floats(line))
