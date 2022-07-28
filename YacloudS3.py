@@ -27,6 +27,28 @@ def retrieve_and_save_to_s3(aws_access_key_id, aws_secret_access_key, s3_bucket_
     logging.info(f"File {cache_filename} has successfully uploaded to S3.")
 
 
+def load_from_s3(aws_access_key_id, aws_secret_access_key, s3_bucket_name):
+    # init s3 object for yandex.cloud
+    session = boto3.session.Session(aws_access_key_id, aws_secret_access_key)
+    s3 = session.client(service_name='s3', endpoint_url='https://storage.yandexcloud.net')
+
+    logging.info("Start trying current data from s3.")
+    cache_filename = "dump_" + datetime.strftime(datetime.today(), "%Y-%m-%d") + ".json"
+    s3.download_file(s3_bucket_name, cache_filename, "s3_" + cache_filename)
+    logging.info(f"File s3_{ cache_filename } was successfully downloaded from s3.")
+
+    cached_object = BondsMOEXDataRetriever.load_results_from_file("s3_" + cache_filename)
+    cached_status = cached_object.get("status", "list_only")
+    bonds_list = cached_object.get("data", [])
+
+    if cached_status != "with_sales":
+        logging.error("Smth went wrong. Cached file don't have proper cached_status")
+        raise
+    else:
+        logging.info(f"{str(len(bonds_list))} bonds were loaded for analyzing.")
+        return bonds_list
+
+
 if __name__ == '__main__':
     # Set logging variables
     logging_level = logging.DEBUG if 'DEBUG' in os.environ else logging.INFO
