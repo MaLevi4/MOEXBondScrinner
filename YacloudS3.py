@@ -34,8 +34,8 @@ if __name__ == '__main__':
     logging.root.name = "BondsSearch"
 
     # Get S3 variables
-    aws_access_key_id = os.environ.get("s3_key_id")
-    aws_secret_access_key = os.environ.get("s3_key_secret")
-    s3_bucket_name = os.environ.get("s3_bucket_name")
+    aws_access_key_id = os.environ["s3_key_id"]
+    aws_secret_access_key = os.environ["s3_key_secret"]
+    s3_bucket_name = os.environ["s3_bucket_name"]
 
     retrieve_and_save_to_s3(aws_access_key_id, aws_secret_access_key, s3_bucket_name)
