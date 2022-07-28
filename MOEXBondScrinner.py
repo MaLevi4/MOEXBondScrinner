@@ -56,7 +56,7 @@ class BondsMOEXDataRetriever:
             request_url = "https://iss.moex.com/iss/engines/stock/markets/bonds/boardgroups/" + str(bonds_group) + \
                           "/securities.json?iss.meta=off&iss.only=securities" \
                           "&securities.columns=SECID,ISIN,SHORTNAME,SECNAME,PREVPRICE,LOTSIZE,FACEVALUE," \
-                          "MATDATE,OFFERDATE,FACEUNIT,ACCRUEDINT,SECTYPE"
+                          "MATDATE,OFFERDATE,FACEUNIT,ACCRUEDINT,SECTYPE,COUPONPERCENT,COUPONPERIOD"
             data = BondsMOEXDataRetriever._url_request(request_url)
             if data is None:
                 logging.critical("Can not retrieve list of bonds. Further processing is impossible. "
@@ -477,7 +477,7 @@ class BondsMOEXFilter:
 class BondsCustomCalculationAndFilter:
     @staticmethod
     def calculate_bonds_profit(bonds_list, commission_ratio):
-        today = datetime.today()
+        today = datetime.today() + timedelta(days=1)
         for bond in bonds_list:
             is_not_offer = BondsMOEXFilter.check_not_offer(bond)
             is_not_amortization = BondsMOEXFilter.check_not_amortization(bond)
@@ -487,6 +487,10 @@ class BondsCustomCalculationAndFilter:
                 profit_type = "simple"
                 (bond_profit, coupon_type) = BondsCustomCalculationAndFilter.\
                     calculate_bond_profit_simple(bond, commission_ratio, today)
+            elif is_not_offer and not is_not_amortization:
+                profit_type = "amortization"
+                (bond_profit, coupon_type) = BondsCustomCalculationAndFilter. \
+                    calculate_bond_profit_amortization(bond, commission_ratio, today)
             else:
                 (bond_profit, profit_type, coupon_type) = BondsCustomCalculationAndFilter.\
                     calculate_bond_profit(bond, commission_ratio)
@@ -703,6 +707,9 @@ class BondsCustomCalculationAndFilter:
         close_date = BondsMOEXFilter._safe_get_time(bond, 'MATDATE')
         if close_date is None:
             return None, None
+        duration = close_date - today
+        if duration.days == 0:
+            return None, None
         coupons_sum = 0
         last_known_coupon_value = 0
         for coupon in coupons:
@@ -719,6 +726,44 @@ class BondsCustomCalculationAndFilter:
             else:
                 coupons_sum += coupon['value']
                 last_known_coupon_value = coupon['value']
+        clear_coupons_sum = coupons_sum * (1 - tax_ratio)
+        value_diff = close_price - buy_price - current_coupon
+        price_tax = (value_diff * tax_ratio) if value_diff > 0 else 0
+        clear_income = clear_coupons_sum + close_price - price_tax
+        clear_profit = clear_income - full_price
+        profit_ratio = clear_profit / full_price
+        profit_year_ratio = profit_ratio / duration.days * 365
+        return profit_year_ratio, coupon_type
+
+    @staticmethod
+    def calculate_bond_profit_amortization(bond, commission_ratio, today, tax_ratio=0.13):
+        if bond['ISIN'] == "RU000A0JWLD0":
+            pass
+        used_keys = ['PREVPRICE', 'FACEVALUE', 'ACCRUEDINT', 'MATDATE', 'COUPONPERCENT', 'COUPONPERIOD', 'coupons']
+        for key in used_keys:
+            if key not in bond:
+                logging.error(f"While executing function 'calculate_bond_profit_simple' can not find '{key}' "
+                              f"for bond {str(bond)}")
+                return None, None
+        coupon_type = "predefined"
+        buy_price = bond['PREVPRICE'] * bond['FACEVALUE'] / 100.0
+        current_coupon = bond['ACCRUEDINT']
+        full_price = buy_price * (1 + commission_ratio) + current_coupon
+        coupon_rate = bond['COUPONPERCENT']
+        coupon_period = bond['COUPONPERIOD']
+        coupons = bond['coupons']
+        close_price = bond['FACEVALUE']
+        close_date = BondsMOEXFilter._safe_get_time(bond, 'MATDATE')
+        if close_date is None:
+            return None, None
+        coupons_sum = 0
+        for coupon in coupons:
+            coupon_date = BondsMOEXFilter._safe_get_time(coupon, 'coupondate')
+            if coupon_date is None:
+                return None, None
+            if coupon_date < today:
+                continue
+            coupons_sum += close_price * (coupon_rate / 100.0) * (coupon_period / 366)
         duration = close_date - today
         clear_coupons_sum = coupons_sum * (1 - tax_ratio)
         value_diff = close_price - buy_price - current_coupon
