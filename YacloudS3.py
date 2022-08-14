@@ -1,6 +1,7 @@
 import boto3
 import os
 import logging
+import json
 from datetime import datetime
 from MOEXBondScrinner import BondsMOEXDataRetriever
 
@@ -32,12 +33,15 @@ def load_from_s3(aws_access_key_id, aws_secret_access_key, s3_bucket_name):
     session = boto3.session.Session(aws_access_key_id, aws_secret_access_key)
     s3 = session.client(service_name='s3', endpoint_url='https://storage.yandexcloud.net')
 
-    logging.info("Start trying current data from s3.")
+    logging.info("Start trying to get current data from s3.")
     cache_filename = "dump_" + datetime.strftime(datetime.today(), "%Y-%m-%d") + ".json"
-    s3.download_file(s3_bucket_name, cache_filename, "s3_" + cache_filename)
-    logging.info(f"File s3_{ cache_filename } was successfully downloaded from s3.")
+    try:
+        cached_object = json.loads(s3.get_object(Bucket=s3_bucket_name, Key=cache_filename)['Body'].read())
+        logging.info(f"Content of cached file {cache_filename} was successfully retrieved from s3.")
+    except:
+        logging.error("Smth went wrong. Content of cached file can not be retrieved from s3")
+        raise
 
-    cached_object = BondsMOEXDataRetriever.load_results_from_file("s3_" + cache_filename)
     cached_status = cached_object.get("status", "list_only")
     bonds_list = cached_object.get("data", [])
 
