@@ -26,7 +26,7 @@ BondsCustomCalculationAndFilter.calculate_bonds_profit(bonds_list, commission_ra
 # Filter out by profit ratio
 bonds_list = BondsCustomCalculationAndFilter.filter_bonds_by_profit_ratio(bonds_list, min_profit_ratio)
 # Add information about emitters
-bonds_list = BondsCustomCalculationAndFilter.enrich_bonds_emitter_local(bonds_list)
+bonds_list = BondsCustomCalculationAndFilter.enrich_bonds_emitter_from_db(bonds_list)
 # Filter out emitters with 'exclude' risk
 bonds_list = BondsCustomCalculationAndFilter.filter_bonds_by_emitter(bonds_list)
 # Fix mistakes
