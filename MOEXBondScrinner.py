@@ -627,7 +627,7 @@ class BondsCustomCalculationAndFilter:
         return profit_year_ratio, profit_type
 
     @staticmethod
-    def enrich_bonds_emitter_local(bonds_list, local_db_name='emitters.db'):
+    def enrich_bonds_emitter_from_db(bonds_list, local_db_name='emitters.db'):
         if not os.path.isfile(local_db_name):
             logging.warning("Local database with name '" + local_db_name + "' is not found. Can not enrich emitters")
             return bonds_list
