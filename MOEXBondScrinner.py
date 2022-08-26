@@ -666,13 +666,12 @@ class BondsCustomCalculationAndFilter:
         return result
 
     @staticmethod
-    def filter_bonds_by_emitter(bonds_list):
+    def filter_bonds_by_emitter(bonds_list, risk_black_list=('exclude')):
         result = []
         for bond in bonds_list:
-            emitter_risk = bond.get('emitter_risk', '')
-            if emitter_risk == "exclude":
-                continue
-            result.append(bond)
+            emitter_risk = bond.get('emitter_risk')
+            if emitter_risk is None or emitter_risk not in risk_black_list:
+                result.append(bond)
         logging.info("After filtering by emitter black list " + str(len(result)) + " bonds left")
         return result
 
