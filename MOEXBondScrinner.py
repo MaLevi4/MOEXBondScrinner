@@ -650,6 +650,22 @@ class BondsCustomCalculationAndFilter:
         return result
 
     @staticmethod
+    def enrich_bonds_emitter_from_dict(bonds_list, emitters_dict):
+        result = []
+        for bond in bonds_list:
+            try:
+                emitter_id = bond["EMITTER_ID"]
+                if emitter_id in emitters_dict:
+                    bond["EMITTER_ID"] = emitters_dict[emitter_id]['name']
+                    bond["emitter_risk"] = emitters_dict[emitter_id]['risk']
+                result.append(bond)
+            except KeyError:
+                logging.error("Can not find 'EMITTER_ID' for bond " + str(bond), exc_info=True)
+        logging.info("Successfully enriched emitter name for " + str(len(result)) + " bonds")
+        return result
+
+
+    @staticmethod
     def filter_bonds_by_profit_ratio(bonds_list, bottom_bound, upper_bound=None):
         result = []
         for bond in bonds_list:
