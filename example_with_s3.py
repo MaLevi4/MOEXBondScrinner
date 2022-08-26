@@ -3,7 +3,7 @@ import os
 import logging
 from datetime import datetime
 from MOEXBondScrinner import BondsMOEXFilter, BondsCustomCalculationAndFilter, BondsCSVWriter
-from YacloudS3 import load_from_s3
+from YacloudS3 import YacloudS3
 
 # Set logging variables
 logging_level = logging.DEBUG if 'DEBUG' in os.environ else logging.INFO
@@ -27,7 +27,8 @@ commission_ratio = 0.01 / 100
 isin_black_list = ['RU000A0DY8K8', 'RU000A0JXPQ1']
 
 # If you have configured YacloudS3.Dockerfile to run daily in Yandex cloud, just load cached data
-bonds_list = load_from_s3(aws_access_key_id, aws_secret_access_key, s3_bucket_name)
+yacloud_s3 = YacloudS3(aws_access_key_id, aws_secret_access_key, s3_bucket_name)
+bonds_list = yacloud_s3.load_bonds_from_s3()
 
 # Filter out bonds based on personal parameters
 bonds_list = BondsMOEXFilter.filter_bonds_advanced(bonds_list, filter_description_dict)
